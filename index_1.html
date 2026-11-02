@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Herramienta para evaluar la sostenibilidad de la producción agrícola a nivel de finca y escalar sus resultados al territorio. Proyecto final GANV-502, CATIE.">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}</style>
+<title>Sostenibilidad de Finca a Territorio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Concepto: ficha técnica de campo sobre un mapa topográfico de cuencas. Encabezado con curvas de nivel, filas de formulario con códigos, resultado como sello. */
+:root{
+  --paper:#F6F7F2; --sheet:#FFFFFF; --sunk:#ECEFE6; --rule:#CBD3C3; --rule-strong:#97A48F;
+  --ink:#16201A; --muted:#5A675D; --pen:#1E4B9B;
+  --amb:#2E6A39; --soc:#8B3A5E; --eco:#7B4B1D;
+  --ok:#287A3E; --mid:#A77A00; --bad:#B4321F; --na:#7F8A82;
+  --ok-bg:#E1F0E3; --mid-bg:#F6ECC8; --bad-bg:#F7DFD9;
+  --contour:#B9C7B4; --contour-strong:#7F9A86; --water:#2F7D8C;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0F1512; --sheet:#151D19; --sunk:#1C2621; --rule:#2B3832; --rule-strong:#4A5C52;
+  --ink:#E3EAE4; --muted:#9CAEA2; --pen:#8DB1F2;
+  --amb:#79BE88; --soc:#D58AAE; --eco:#D3A06A;
+  --ok:#5CC077; --mid:#E1B93C; --bad:#F07C69; --na:#7E8B84;
+  --ok-bg:#1B3323; --mid-bg:#382F12; --bad-bg:#3D1E19;
+  --contour:#25332C; --contour-strong:#3E5649; --water:#5DB3C2; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0F1512; --sheet:#151D19; --sunk:#1C2621; --rule:#2B3832; --rule-strong:#4A5C52;
+  --ink:#E3EAE4; --muted:#9CAEA2; --pen:#8DB1F2;
+  --amb:#79BE88; --soc:#D58AAE; --eco:#D3A06A;
+  --ok:#5CC077; --mid:#E1B93C; --bad:#F07C69; --na:#7E8B84;
+  --ok-bg:#1B3323; --mid-bg:#382F12; --bad-bg:#3D1E19;
+  --contour:#25332C; --contour-strong:#3E5649; --water:#5DB3C2; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16.5px;line-height:1.55}
+h1,h2,h3,h4{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.05;letter-spacing:.01em}
+.wrap{max-width:1200px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--pen);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.label{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.note{font-size:14.5px;color:var(--muted)}
+
+/* ---------- encabezado topográfico ---------- */
+header.top{position:relative;border-bottom:2px solid var(--ink);overflow:hidden;background:var(--paper)}
+#topo{position:absolute;inset:0;width:100%;height:100%;display:block}
+header.top .wrap{position:relative;padding-block:26px 0}
+.meta{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline}
+.meta .code{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+header h1{font-weight:800;text-transform:uppercase;font-size:clamp(40px,7.2vw,86px);line-height:.9;margin-top:14px;max-width:12ch}
+header h1 span{color:var(--water)}
+.lede{max-width:60ch;margin:14px 0 0;font-size:17px}
+.scale{display:flex;flex-wrap:wrap;gap:0;margin-top:20px;font-family:var(--f-display);font-weight:600;font-size:14px;letter-spacing:.08em;text-transform:uppercase}
+.scale span{padding:4px 12px;border:1.5px solid var(--ink);margin-right:-1.5px;background:var(--sheet)}
+.scale span:first-child{background:var(--ink);color:var(--paper)}
+nav.tabs{display:flex;gap:0;margin-top:24px;overflow-x:auto}
+nav.tabs a{font-family:var(--f-display);font-weight:700;font-size:16px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-decoration:none;padding:10px 18px 9px;border:2px solid transparent;border-bottom:none;white-space:nowrap;position:relative;top:2px}
+nav.tabs a b{font-family:var(--f-mono);font-weight:600;font-size:12px;margin-right:6px;color:var(--water)}
+nav.tabs a[aria-current="page"]{background:var(--paper);color:var(--ink);border-color:var(--ink)}
+nav.tabs a:hover:not([aria-current="page"]){color:var(--ink)}
+
+main .wrap{padding-block:26px 64px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-mono);font-size:12px;padding:2px 8px;border:1px solid var(--rule-strong);color:var(--muted)}
+.btn{border:1.5px solid var(--ink);background:var(--sheet);padding:7px 14px;cursor:pointer;font-family:var(--f-display);font-weight:700;font-size:15px;letter-spacing:.06em;text-transform:uppercase;border-radius:2px;text-decoration:none;color:var(--ink);display:inline-block}
+.btn:hover{background:var(--sunk)}
+.btn.primary{background:var(--ink);color:var(--paper)}
+.btn.primary:hover{background:var(--pen);border-color:var(--pen)}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.field{border:none;border-bottom:1.5px solid var(--ink);background:transparent;padding:4px 2px;color:var(--pen);font-family:var(--f-body);font-size:18px;min-width:0;width:min(360px,100%);border-radius:0}
+select.field{font-size:16px;padding-right:20px}
+.copied{font-size:14px;color:var(--ok);font-family:var(--f-display);font-weight:600;letter-spacing:.04em}
+
+/* ---------- ficha de evaluación ---------- */
+.eval{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:30px;align-items:start}
+@media (max-width:920px){.eval{grid-template-columns:minmax(0,1fr)}}
+.sheethead{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between;padding-bottom:14px;border-bottom:1.5px solid var(--ink);margin-bottom:6px}
+.sheethead .fld{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 260px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13.5px;color:var(--muted);margin:10px 0 0}
+.legend b{font-family:var(--f-display);letter-spacing:.05em;text-transform:uppercase;font-size:13px}
+.dimhead{display:flex;align-items:baseline;gap:12px;margin:30px 0 0;padding:6px 0;border-bottom:3px solid var(--dc)}
+.dimhead h2{font-size:30px;font-weight:800;text-transform:uppercase;color:var(--dc)}
+.dimhead .count{margin-left:auto;font-size:14px}
+.crit{display:grid;grid-template-columns:72px minmax(0,1fr);gap:2px 16px;padding:14px 0;border-bottom:1px solid var(--rule)}
+.crit .num{grid-row:span 4;font-family:var(--f-mono);font-size:13px;font-weight:600;color:var(--dc);padding-top:4px;border-right:1px dashed var(--rule-strong);padding-right:8px}
+.crit .tag{font-family:var(--f-display);font-weight:700;font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--dc)}
+.crit .q{margin:0;font-size:17px}
+.crit .ver{font-size:14.5px;color:var(--muted);margin:2px 0 0}
+.crit .ver b{font-family:var(--f-display);letter-spacing:.06em;text-transform:uppercase;font-size:13px;color:var(--ink)}
+.crit-flag{font-family:var(--f-display);font-weight:700;font-size:12px;letter-spacing:.08em;color:var(--bad);border:1.5px solid var(--bad);padding:0 5px;margin-left:8px;vertical-align:1px}
+.choices{display:flex;flex-wrap:wrap;gap:4px 18px;margin-top:8px}
+.choices label{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:15px;position:relative}
+.choices input{position:absolute;opacity:0;width:18px;height:18px;margin:0;cursor:pointer}
+.choices .box{width:18px;height:18px;border:1.5px solid var(--ink);display:inline-grid;place-items:center;background:var(--sheet);flex:none}
+.choices .box::after{content:"";width:10px;height:10px;transform:scale(0);transition:transform .12s ease}
+.choices input:checked + .box::after{transform:scale(1)}
+.choices input[value="c"]:checked + .box{border-color:var(--ok)} .choices input[value="c"]:checked + .box::after{background:var(--ok)}
+.choices input[value="p"]:checked + .box{border-color:var(--mid)} .choices input[value="p"]:checked + .box::after{background:var(--mid)}
+.choices input[value="n"]:checked + .box{border-color:var(--bad)} .choices input[value="n"]:checked + .box::after{background:var(--bad)}
+.choices input[value="na"]:checked + .box::after{background:var(--na)}
+.choices input:checked ~ .lbl{font-weight:600;color:var(--ink)}
+.choices .lbl{color:var(--muted)}
+.choices input:focus-visible + .box{outline:3px solid var(--pen);outline-offset:2px}
+.crit.unanswered .num::after{content:" ·";color:var(--bad)}
+
+/* resumen y sello */
+aside.summary{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);background:var(--sheet);border:1.5px solid var(--ink);padding:18px;box-shadow:6px 6px 0 var(--rule)}
+@media (max-width:920px){aside.summary{position:static;order:-1;box-shadow:none}}
+aside.summary h3{font-size:22px;font-weight:800;text-transform:uppercase}
+.stamp{display:inline-block;margin:14px 0 6px;padding:6px 12px;border:3px double var(--vc);color:var(--vc);font-family:var(--f-display);font-weight:800;font-size:22px;letter-spacing:.08em;text-transform:uppercase;transform:rotate(-3deg);line-height:1.1}
+.stamp-note{margin:4px 0 0;font-size:14.5px}
+.dimbar{margin-top:14px}
+.dimbar .row{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--f-display);font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:15px}
+.dimbar .row .mono{font-size:15px;letter-spacing:0}
+.track{height:12px;background:repeating-linear-gradient(90deg,var(--sunk) 0 9.6%,var(--rule) 9.6% 10%);border:1px solid var(--rule-strong);margin-top:5px;position:relative;overflow:hidden}
+.track i{position:absolute;inset:0 auto 0 0}
+.track .t50,.track .t75{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink)}
+.track .t50{left:50%}.track .t75{left:75%}
+.dimbar .sub{font-size:13px;color:var(--muted);margin-top:3px}
+.progress{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);margin-top:14px}
+.flags{margin:10px 0 0;padding-left:18px;font-size:14.5px}
+.flags li{margin-bottom:3px}
+.summary .btns{margin-top:14px}
+
+/* ---------- calificar ---------- */
+.ratebar{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:flex-end;padding-bottom:14px;border-bottom:1.5px solid var(--ink);margin-bottom:12px}
+.ratebar .fld{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rate{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:30px;align-items:start}
+@media (max-width:980px){.rate{grid-template-columns:minmax(0,1fr)}}
+.rate .right{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);display:grid;gap:14px}
+@media (max-width:980px){.rate .right{position:static;order:-1}}
+.rhead{display:flex;align-items:baseline;gap:10px;margin:24px 0 2px;border-bottom:3px solid var(--dc);padding-bottom:4px}
+.rhead h2{font-size:26px;font-weight:800;text-transform:uppercase;color:var(--dc)}
+.rhead .avg{margin-left:auto;font-family:var(--f-mono);font-size:14px}
+.srow{display:grid;grid-template-columns:62px minmax(0,1fr) 40px;gap:2px 12px;align-items:center;padding:9px 0;border-bottom:1px solid var(--rule)}
+.srow .sn{font-family:var(--f-mono);font-size:12.5px;font-weight:600;color:var(--dc)}
+.srow .sl{font-family:var(--f-display);font-weight:700;font-size:16px;letter-spacing:.04em;text-transform:uppercase;min-width:0}
+.srow .sl small{display:block;font-family:var(--f-body);font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);font-size:13.5px}
+.srow .sv{font-family:var(--f-mono);font-size:20px;font-weight:600;text-align:right}
+.srow input[type=range]{grid-column:2 / 4;width:100%;accent-color:var(--dc)}
+.wheelbox{background:var(--sheet);border:1.5px solid var(--ink);padding:14px;box-shadow:6px 6px 0 var(--rule)}
+@media (max-width:980px){.wheelbox{box-shadow:none}}
+.wheelbox .label{display:block;margin-bottom:4px}
+.wheelbox svg{display:block;width:100%;max-width:450px;height:auto;margin:0 auto}
+.wlegend{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;font-size:13px;color:var(--muted);margin-top:4px;font-family:var(--f-display);letter-spacing:.06em;text-transform:uppercase;font-weight:600}
+.wlegend i{display:inline-block;width:11px;height:11px;margin-right:6px;vertical-align:-1px}
+.analysis{background:var(--sheet);border:1.5px solid var(--ink);padding:16px 18px;position:relative}
+.analysis .stamp{margin-top:2px}
+.analysis .scores{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 6px}
+.analysis .scores span{font-family:var(--f-mono);font-size:12.5px;padding:2px 8px;border:1px solid currentColor}
+.analysis h4{margin:14px 0 4px;font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--rule);padding-bottom:3px}
+.analysis p{margin:0 0 8px;font-size:15.5px}
+.analysis .concl{background:var(--vbg);padding:10px 12px;border-left:4px solid var(--vc)}
+
+/* ---------- territorio ---------- */
+.terr-intro{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:28px;align-items:start}
+@media (max-width:920px){.terr-intro{grid-template-columns:minmax(0,1fr)}}
+.terr-intro h2{font-size:38px;font-weight:800;text-transform:uppercase;margin-bottom:10px}
+.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1.5px solid var(--ink);background:var(--sheet)}
+.fact{padding:12px 14px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.fact:nth-child(2n){border-right:none}.fact:nth-child(n+3){border-bottom:none}
+.fact b{display:block;font-family:var(--f-display);font-size:38px;font-weight:800;color:var(--water);line-height:1}
+.fact span{font-size:14px;color:var(--muted)}
+.filters{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;margin:28px 0 14px;padding-bottom:12px;border-bottom:1.5px solid var(--ink)}
+.filters .fld{display:flex;flex-direction:column;gap:2px}
+.chk{display:inline-flex;gap:8px;align-items:center;font-size:15px}
+.chk input{accent-color:var(--pen);width:17px;height:17px}
+.dimtiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin-bottom:18px;border:1.5px solid var(--ink);background:var(--sheet)}
+@media (max-width:640px){.dimtiles{grid-template-columns:minmax(0,1fr)}}
+.dtile{padding:12px 16px;border-right:1px solid var(--rule)}
+.dtile:last-child{border-right:none}
+@media (max-width:640px){.dtile{border-right:none;border-bottom:1px solid var(--rule)}}
+.dtile .lab{font-family:var(--f-display);font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--dc)}
+.dtile .big{font-family:var(--f-display);font-size:44px;font-weight:800;line-height:1}
+.dtile .sub{font-size:14px;color:var(--muted)}
+.tablebox{overflow-x:auto;border:1.5px solid var(--ink);background:var(--sheet)}
+table{border-collapse:collapse;width:100%;min-width:880px;font-size:14.5px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-family:var(--f-display);font-weight:700;font-size:13.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);background:var(--sunk);border-bottom:1.5px solid var(--ink)}
+tr:last-child td{border-bottom:none}
+td.n{font-family:var(--f-mono);color:var(--dc);font-weight:600;font-size:13px;white-space:nowrap}
+.ods{display:inline-flex;align-items:center;justify-content:center;min-width:36px;padding:2px 6px;color:#fff;font-family:var(--f-display);font-size:13px;font-weight:700;letter-spacing:.04em}
+.stack{display:flex;height:12px;overflow:hidden;background:var(--sunk);min-width:130px;border:1px solid var(--rule-strong)}
+.stack i{display:block;height:100%}
+.pct{font-family:var(--f-mono);font-size:12.5px;margin-top:3px}
+.h3sec{font-size:30px;font-weight:800;text-transform:uppercase;margin:38px 0 12px}
+.prose{max-width:68ch}
+.prose p{margin:0 0 12px}
+.cards3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border:1.5px solid var(--ink);background:var(--sheet)}
+@media (max-width:820px){.cards3{grid-template-columns:minmax(0,1fr)}}
+.cardx{padding:16px 18px;border-right:1px solid var(--rule)}
+.cardx:last-child{border-right:none}
+@media (max-width:820px){.cardx{border-right:none;border-bottom:1px solid var(--rule)}}
+.cardx h4{font-size:20px;font-weight:800;text-transform:uppercase;margin:0 0 6px;color:var(--water)}
+.cardx p{margin:0;font-size:15px}
+
+/* ---------- fundamentos ---------- */
+.about{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:36px;align-items:start}
+@media (max-width:920px){.about{grid-template-columns:minmax(0,1fr)}}
+.about h2{font-size:38px;font-weight:800;text-transform:uppercase;margin-bottom:14px}
+blockquote{margin:0 0 20px;padding:4px 0 4px 20px;border-left:4px solid var(--water);font-size:20px;font-style:italic;line-height:1.5}
+.levels{list-style:none;padding:0;margin:0;border:1.5px solid var(--ink);background:var(--sheet)}
+.levels li{display:grid;grid-template-columns:48px minmax(0,1fr);border-bottom:1px solid var(--rule)}
+.levels li:last-child{border-bottom:none}
+.levels .lv{font-family:var(--f-display);font-weight:800;font-size:26px;display:grid;place-items:center;border-right:1px solid var(--rule);color:var(--water)}
+.levels li span:last-child{padding:10px 14px}
+.side{border:1.5px solid var(--ink);background:var(--sheet);padding:14px 16px}
+.side h3{font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.side ul{margin:0;padding-left:18px;font-size:15px}
+footer{border-top:2px solid var(--ink);color:var(--muted);font-size:14px}
+footer .wrap{padding-block:16px 28px;display:flex;flex-wrap:wrap;gap:6px 20px;justify-content:space-between}
+@media (prefers-reduced-motion:no-preference){.track i,.stack i{transition:width .35s ease}}
+</style>
+</head>
+<body>
+
+
+<header class="top">
+  <canvas id="topo" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <div class="meta">
+      <span class="label">CATIE · Maestría GANEMOS · GANV-502</span>
+      <span class="code">Ficha de campo · 20 criterios · 3 dimensiones</span>
+    </div>
+    <h1>Sostenibilidad de finca <span>a territorio</span></h1>
+    <p class="lede">Herramienta para evaluar la sostenibilidad de la producción agrícola con 20 criterios verificables en la finca, cuyos resultados se agregan en indicadores territoriales vinculados a los ODS.</p>
+    <div class="scale" aria-label="Escalas de la herramienta">
+      <span>Finca</span><span>Microcuenca</span><span>Parroquia</span><span>Cantón</span><span>Provincia</span><span>ODS</span>
+    </div>
+    <nav class="tabs" aria-label="Secciones">
+      <a href="#evaluar" data-view="evaluar"><b>01</b>Evaluar</a>
+      <a href="#calificar" data-view="calificar"><b>02</b>Calificar fincas</a>
+      <a href="#territorio" data-view="territorio"><b>03</b>Escala territorial</a>
+      <a href="#acerca" data-view="acerca"><b>04</b>Fundamentos</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap">
+
+<!-- ===================== EVALUAR ===================== -->
+<section class="view" id="v-evaluar">
+  <div class="eval">
+    <div style="min-width:0">
+      <div class="sheethead">
+        <div class="fld">
+          <label for="farmName" class="label">Finca evaluada</label>
+          <input id="farmName" class="field" type="text" placeholder="Nombre de la finca, vereda o comunidad">
+        </div>
+        <div class="btns">
+          <button class="btn" id="loadExample" type="button">Cargar ejemplo</button>
+          <button class="btn" id="clearAll" type="button">Ficha en blanco</button>
+        </div>
+      </div>
+      <p class="note" id="exampleNote" hidden>Se muestra una <b>finca de ejemplo</b> (caficultura familiar en ladera) con respuestas ilustrativas. Puede cambiar cualquier respuesta o abrir una ficha en blanco.</p>
+      <div class="legend"><span><b style="color:var(--ok)">Cumple</b> implementada y verificable</span><span><b style="color:var(--mid)">En progreso</b> parcial o sin verificador</span><span><b style="color:var(--bad)">No cumple</b> sin implementar</span><span><b>No aplica</b> no corresponde</span></div>
+      <div id="critList"></div>
+    </div>
+    <aside class="summary" aria-live="polite">
+      <h3>Resultado de la finca</h3>
+      <div id="verdict"></div>
+      <div id="dimbars"></div>
+      <div class="progress" id="progress"></div>
+      <ul class="flags" id="flags"></ul>
+      <div class="btns">
+        <button class="btn primary" id="copySummary" type="button">Copiar resumen</button>
+        <a class="btn" href="#calificar">Calificar →</a>
+      </div>
+      <div class="copied" id="copied" hidden></div>
+      <p class="note" style="margin-top:12px">Las tres dimensiones se reportan por separado y no se compensan entre sí. Umbrales: verde ≥ 75 %, amarillo 50–74 %, rojo &lt; 50 %.</p>
+    </aside>
+  </div>
+</section>
+
+<!-- ===================== CALIFICAR ===================== -->
+<section class="view" id="v-calificar" hidden>
+  <div class="ratebar">
+    <div class="fld"><label for="rSel" class="label">Finca</label><select id="rSel" class="field"></select></div>
+    <div class="fld"><label for="rName" class="label">Nombre</label><input id="rName" class="field" type="text"></div>
+    <div class="btns">
+      <button class="btn primary" id="rNew" type="button">Nueva finca</button>
+      <button class="btn" id="rImport" type="button">Traer respuestas de 01</button>
+      <button class="btn danger" id="rDel" type="button">Eliminar finca</button>
+    </div>
+  </div>
+  <p class="note" style="margin:0 0 10px">Califique cada criterio de 0 a 10: <b>0</b> sin implementar, <b>5</b> implementación parcial o sin verificador, <b>10</b> implementada y verificada. Las fincas marcadas “ejemplo” tienen calificaciones ilustrativas.</p>
+  <div class="rate">
+    <div style="min-width:0" id="rSliders"></div>
+    <div class="right">
+      <div class="wheelbox">
+        <span class="label">Rueda de sostenibilidad</span>
+        <svg id="wheel" viewBox="0 0 440 440" role="img" aria-label="Rueda de sostenibilidad de la finca"></svg>
+        <div class="wlegend"><span><i style="background:var(--amb)"></i>Ambiental 1–10</span><span><i style="background:var(--soc)"></i>Social 11–15</span><span><i style="background:var(--eco)"></i>Económica 16–20</span></div>
+      </div>
+      <div class="analysis" id="analysis" aria-live="polite"></div>
+      <div class="btns"><button class="btn" id="rCopy" type="button">Copiar análisis</button><span class="copied" id="rCopied" hidden></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== TERRITORIO ===================== -->
+<section class="view" id="v-territorio" hidden>
+  <div class="terr-intro">
+    <div class="prose">
+      <h2>Del predio a las metas del territorio</h2>
+      <p>Cada criterio de finca se vincula con una meta ODS y con un indicador que puede calcularse para el cantón o desagregarse por parroquia, microcuenca o rubro. El caso de referencia es el Plan de Desarrollo y Ordenamiento Territorial (PDOT) del cantón Flavio Alfaro, en Manabí, Ecuador.</p>
+      <p class="note">El agregado usa <b>24 fincas ilustrativas</b> (no son datos reales del cantón) para mostrar cómo se leen los resultados. Puede incluir la finca evaluada en la ficha 01.</p>
+    </div>
+    <div class="facts" aria-label="Datos del diagnóstico del PDOT">
+      <div class="fact"><b>50,36 %</b><span>del territorio con uso pecuario</span></div>
+      <div class="fact"><b>26,31 %</b><span>del territorio deforestado entre 1990 y 2018</span></div>
+      <div class="fact"><b>75,50 %</b><span>del cantón sin agua de riego</span></div>
+      <div class="fact"><b>17</b><span>microcuencas en las cuencas Guayas, Jama y Esmeraldas</span></div>
+    </div>
+  </div>
+
+  <div class="filters">
+    <div class="fld"><label for="fParroquia" class="label">Parroquia</label>
+    <select id="fParroquia" class="field">
+      <option value="all">Todo el cantón</option>
+      <option>Flavio Alfaro</option>
+      <option>Zapallo</option>
+      <option>San Francisco de Novillo</option>
+    </select></div>
+    <div class="fld"><label for="fDim" class="label">Dimensión</label>
+    <select id="fDim" class="field">
+      <option value="all">Todas</option>
+      <option value="amb">Ambiental</option>
+      <option value="soc">Social</option>
+      <option value="eco">Económica</option>
+    </select></div>
+    <label class="chk"><input type="checkbox" id="includeMine"> Incluir mi finca evaluada</label>
+    <span class="pill" id="nFincas"></span>
+  </div>
+
+  <div class="dimtiles" id="dimtiles"></div>
+
+  <div class="tablebox">
+    <table>
+      <thead><tr><th>Código</th><th>Criterio de finca</th><th>ODS · meta</th><th>Tema e indicador territorial</th><th style="min-width:170px">Fincas: cumple · progreso · no</th></tr></thead>
+      <tbody id="terrBody"></tbody>
+    </table>
+  </div>
+  <p class="note" style="margin-top:8px">Fuente: elaboración propia con base en los criterios de las semanas 2 y 3, las metas de la Agenda 2030 y el diagnóstico del PDOT de Flavio Alfaro. Cada reporte debe indicar el número de fincas y el período de medición.</p>
+
+  <h3 class="h3sec">Coherencia territorial</h3>
+  <div class="cards3">
+    <div class="cardx"><h4>Cuencas antes que límites</h4><p>Las 17 microcuencas drenan hacia las cuencas Guayas (Daule), Jama y Esmeraldas (Blanco). Los indicadores de suelo y agua se agregan por microcuenca y se comparten con el GAD provincial y los cantones vecinos, como Chone y El Carmen.</p></div>
+    <div class="cardx"><h4>Un responsable por indicador</h4><p>El GAD provincial tiene a cargo la gestión ambiental, el riego, las obras en cuencas y el fomento agropecuario. El GAD municipal controla el uso y la ocupación del suelo. El GAD parroquial incentiva las actividades productivas comunitarias.</p></div>
+    <div class="cardx"><h4>Desarrollo territorial rural</h4><p>Los criterios económicos apoyan la transformación productiva y la articulación a mercados; la participación y el reporte común apoyan el desarrollo institucional. Ambos se orientan a reducir la pobreza rural.</p></div>
+  </div>
+
+  <h3 class="h3sec">Articulación multiescalar</h3>
+  <div class="tablebox">
+    <table>
+      <thead><tr><th>Temas (criterios)</th><th>Escala de agregación</th><th>Actores competentes</th><th>Instrumento de planeación</th></tr></thead>
+      <tbody id="artBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===================== ACERCA ===================== -->
+<section class="view" id="v-acerca" hidden>
+  <div class="about">
+    <div class="prose" style="max-width:none">
+      <h2>Definición de sostenibilidad</h2>
+      <blockquote>La sostenibilidad es la capacidad de una actividad productiva de mantenerse en el tiempo cuidando a la vez el ambiente, a las personas y su rentabilidad. Ninguna de las tres dimensiones basta por sí sola, y el resultado debe poder medirse, verificarse y sumarse a las metas del territorio en que la finca se encuentra.</blockquote>
+
+      <h3 class="h3sec" style="margin-top:6px">Cómo se construyó</h3>
+      <p>Los criterios se seleccionaron a partir de los temas comunes de cuatro normas de certificación (Rainforest Alliance, Fairtrade, GLOBALG.A.P. con su módulo GRASP y el Código 4C) y del marco SAFA de la FAO. Se eligieron prácticas que aparecen en más de un esquema, que se pueden verificar en una visita corta y que son realistas para una finca familiar.</p>
+      <p>Los ejemplos se ilustran con la caficultura familiar. Para el caso de Flavio Alfaro, donde predomina la ganadería, las prácticas de suelo, agua y biodiversidad se adaptan a pasturas, sistemas silvopastoriles y cercas vivas, y se añade un verificador de no conversión de bosque natural (meta ODS 15.2).</p>
+
+      <h3 class="h3sec">Niveles de verificación</h3>
+      <ul class="levels">
+        <li><span class="lv">1</span><span><b>Observación en campo</b> y fotografías fechadas, que pueden hacer el productor o un técnico.</span></li>
+        <li><span class="lv">2</span><span><b>Registros y bitácoras</b> que lleva el productor (costos, aplicaciones, cosecha, jornada).</span></li>
+        <li><span class="lv">3</span><span><b>Documentos externos</b>: análisis de laboratorio, permisos, comprobantes de afiliación o de recolección.</span></li>
+      </ul>
+      <p style="margin-top:12px">Un criterio puede empezar en el nivel 1 y avanzar con el tiempo, en la lógica de mejora continua de las normas revisadas.</p>
+
+      <h3 class="h3sec">Cómo se lee el resultado</h3>
+      <p>En la ficha 01, cada respuesta vale 2 (cumple), 1 (en progreso) o 0 (no cumple); “no aplica” se excluye del cálculo. En la ficha 02, cada criterio se califica de 0 a 10. En ambos casos cada dimensión se reporta por separado, sin índice único, porque un buen ingreso no puede ocultar un río sin protección o un trabajador sin seguridad social.</p>
+      <p>Cuatro criterios se tratan como <b>mínimos exigibles</b>: manejo seguro y sin productos prohibidos de agroquímicos (AMB-07), salario mínimo (SOC-11), ausencia de trabajo infantil peligroso y de trabajo forzoso (SOC-13) y salud y seguridad, incluida el agua potable (SOC-14). Se tomaron de las prácticas inaceptables del Código 4C y de la legislación laboral. Si alguno no se cumple, la finca requiere atención aunque sus puntajes sean altos.</p>
+      <p class="note">Los umbrales (75 % y 50 %, o 7,5 y 5 sobre 10) y la lista de mínimos son una propuesta de la herramienta para el piloto, ajustable con los productores y el GAD.</p>
+    </div>
+    <div style="display:grid;gap:14px">
+      <div class="side">
+        <h3>Integrantes</h3>
+        <ul>
+          <li>José Rodolfo Castro González</li>
+          <li>Dylan Enrique Pazmiño García</li>
+          <li>Vanessa Paola Duarte Mahecha</li>
+          <li>Bryan Steven Rodríguez Escobar</li>
+        </ul>
+      </div>
+      <div class="side">
+        <h3>Ruta de implementación</h3>
+        <ul>
+          <li>Piloto en una microcuenca con una organización de productores.</li>
+          <li>Línea base georreferenciada de las fincas participantes.</li>
+          <li>Indicadores agregados en el seguimiento anual del PDOT.</li>
+        </ul>
+      </div>
+      <div class="side">
+        <h3>Fuentes principales</h3>
+        <ul class="note" style="font-size:14px">
+          <li>4C Association (2015), Código de Conducta 4C v2.0.</li>
+          <li>Rainforest Alliance, Estándar de Agricultura Sostenible 2020.</li>
+          <li>Fairtrade International, Estándar para Organizaciones de Pequeños Productores.</li>
+          <li>FAO (2014), Directrices SAFA 3.0.</li>
+          <li>Schejtman y Berdegué (2004), Desarrollo territorial rural.</li>
+          <li>COOTAD (2010), arts. 42, 55 y 285.</li>
+          <li>GAD Municipal de Flavio Alfaro, PDOT y su actualización.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+</main>
+<footer><div class="wrap"><span>Proyecto final · Maestría en Gestión de Agronegocios y Mercados Sostenibles (GANEMOS), CATIE · 2026</span><span>Los datos ingresados se guardan solo en este navegador.</span></div></footer>
+
+<script>
+(function(){
+const DIMS={amb:{name:"Ambiental",color:"var(--amb)",code:"AMB"},soc:{name:"Social",color:"var(--soc)",code:"SOC"},eco:{name:"Económica",color:"var(--eco)",code:"ECO"}};
+const ODSCOL={2:"#B5862C",5:"#E0402A",6:"#1F9CBF",8:"#A21942",9:"#E5602A",12:"#A87A26",13:"#3F7E44",15:"#4A9E2A"};
+const C=[
+ {n:1,d:"amb",c:"Uso del suelo",q:"¿Mantiene coberturas vegetales (cultivos de cobertura, mulch o arvenses manejadas) que protejan el suelo?",v:"Observación en campo con fotografías fechadas",ods:15,m:"15.3",t:"Suelo y restauración",i:"Hectáreas y % del área agrícola con cobertura vegetal permanente o temporal"},
+ {n:2,d:"amb",c:"Uso del suelo",q:"¿Aplica obras de conservación (curvas de nivel, barreras vivas, siembra en contorno) en las áreas con pendiente?",v:"Mapa o croquis de la finca con las obras ubicadas y fotografías",ods:15,m:"15.3",t:"Suelo y restauración",i:"Hectáreas en pendiente con curvas de nivel, barreras vivas, terrazas o siembra en contorno"},
+ {n:3,d:"amb",c:"Uso del suelo",q:"¿Orienta la fertilización con análisis de suelo y usa abonos orgánicos o compost en lugar de depender solo de fertilizante sintético?",v:"Análisis de suelo (al menos cada dos años) y registro de aplicaciones",ods:2,m:"2.4",t:"Producción sostenible",i:"% de fincas con análisis de suelo vigente y plan de fertilización; t/año de abono orgánico aplicado"},
+ {n:4,d:"amb",c:"Agua",q:"¿Protege nacimientos, quebradas y ríos con franjas de vegetación y evita producir o aplicar insumos en esa zona?",v:"Observación y medición de la franja con cinta o GPS, más fotografías",ods:6,m:"6.6",t:"Ecosistemas hídricos",i:"Kilómetros de riberas protegidas y hectáreas de vegetación ribereña conservada o restaurada"},
+ {n:5,d:"amb",c:"Agua",q:"¿Usa el agua de forma eficiente (riego dirigido, beneficio con poca agua, reutilización) y sabe cuánto consume?",v:"Registro de consumo o medición de caudal, y permiso o concesión de agua cuando aplique",ods:6,m:"6.4",t:"Eficiencia hídrica",i:"m³ de agua por tonelada producida y % de fincas que miden su consumo"},
+ {n:6,d:"amb",c:"Agroquímicos",q:"¿Practica manejo integrado de plagas (monitoreo, control biológico, control cultural) y aplica solo cuando el umbral lo justifica?",v:"Bitácora de monitoreo y registro de aplicaciones (producto, dosis, fecha, motivo)",ods:2,m:"2.4",t:"Producción sostenible",i:"% de fincas con monitoreo y manejo integrado documentado; aplicaciones/ha/año"},
+ {n:7,d:"amb",c:"Agroquímicos",crit:true,q:"¿Almacena y maneja los agroquímicos de forma segura, evita los productos prohibidos y hace triple lavado y disposición de los envases?",v:"Inspección de la bodega, lista de productos contrastada con la de prohibidos y comprobante de entrega de envases",ods:12,m:"12.4",t:"Químicos y desechos",i:"% de fincas con bodega segura y % de envases entregados a un gestor autorizado"},
+ {n:8,d:"amb",c:"Biodiversidad",q:"¿Mantiene árboles de sombra o sistemas agroforestales (o silvopastoriles) y conserva la vegetación natural existente?",v:"Conteo de árboles por hectárea en una parcela de muestra y mapa de cobertura de la finca",ods:15,m:"15.5",t:"Biodiversidad y conectividad",i:"Hectáreas bajo sistemas agroforestales; árboles/ha y hectáreas de vegetación natural conservada"},
+ {n:9,d:"amb",c:"Residuos y clima",q:"¿Separa y trata los residuos (compostaje de orgánicos y pulpa, manejo de plásticos y envases) y no los quema ni los arroja a fuentes de agua?",v:"Observación de la compostera y del punto de acopio, con fotografías y comprobantes de recolección",ods:12,m:"12.5",t:"Economía circular",i:"% de fincas que separan residuos; toneladas compostadas y recuperadas por año"},
+ {n:10,d:"amb",c:"Residuos y clima",q:"¿Evita la quema de rastrojos y lleva un registro básico de combustibles y energía, con metas de reducción?",v:"Declaración firmada de no quema, observación en campo y registro mensual de consumo",ods:13,m:"13.2",t:"Mitigación y adaptación climática",i:"% de fincas sin quema y variación anual del consumo de energía por unidad producida"},
+ {n:11,d:"soc",c:"Derechos laborales",crit:true,q:"¿Paga a todos los trabajadores, incluidos temporales y pagos por kilo, al menos el salario mínimo legal o el acuerdo sectorial, en la fecha acordada?",v:"Planillas o recibos de pago firmados; para el pago por kilo, registro de kilos y días trabajados",ods:8,m:"8.5",t:"Empleo e ingreso digno",i:"% de trabajadores con pago igual o superior al mínimo legal; brecha salarial media"},
+ {n:12,d:"soc",c:"Derechos laborales",q:"¿Formaliza la relación laboral con contrato escrito o acuerdo verbal conocido, y respeta la jornada máxima con horas extra voluntarias y pagadas?",v:"Copia de contratos o acuerdos, registro de jornada y entrevista corta a trabajadores",ods:8,m:"8.8",t:"Derechos laborales",i:"% de trabajadores con contrato o acuerdo documentado y registro de jornada"},
+ {n:13,d:"soc",c:"Trabajo infantil y forzoso",crit:true,q:"¿Garantiza que los menores de 15 años no integren la fuerza laboral regular, que los menores de 18 no hagan labores peligrosas y que no se retengan documentos ni salarios?",v:"Listado de trabajadores con fecha de nacimiento, matrícula escolar de los niños del hogar y declaración firmada",ods:8,m:"8.7",t:"Protección de la niñez",i:"N.º y % de fincas sin trabajo infantil peligroso ni señales de trabajo forzoso"},
+ {n:14,d:"soc",c:"Salud y seguridad",crit:true,q:"¿Afilia a los trabajadores a la seguridad social y riesgos laborales, entrega equipo de protección para agroquímicos y dispone de botiquín y agua potable?",v:"Comprobante de afiliación, registro de entrega de EPP y observación del botiquín y del punto de agua",ods:8,m:"8.8",t:"Seguridad y salud ocupacional",i:"% de trabajadores con seguridad social y % de fincas con EPP, botiquín y agua potable"},
+ {n:15,d:"soc",c:"Equidad y participación",q:"¿Cuenta con un mecanismo de quejas sin represalias y promueve la participación de mujeres y jóvenes en capacitaciones y decisiones?",v:"Libro o buzón de quejas con respuesta registrada y listas de asistencia desagregadas por sexo y edad",ods:5,m:"5.5",t:"Participación e inclusión",i:"% de mujeres y jóvenes en capacitaciones, comités y decisiones; % de quejas resueltas"},
+ {n:16,d:"eco",c:"Control de costos",q:"¿Lleva el registro permanente de costos (mano de obra, insumos, transporte, beneficio) e ingresos, y calcula el costo por kilogramo?",v:"Libro o plantilla de costos e ingresos, con costo por kg y margen al cierre de la cosecha",ods:8,m:"8.3",t:"Gestión empresarial rural",i:"% de fincas con registros completos; costo y margen promedio por kg y por rubro"},
+ {n:17,d:"eco",c:"Productividad y calidad",q:"¿Registra la producción por lote y aplica un plan de renovación del cultivo para sostener la productividad?",v:"Registro de cosecha por lote (kg/ha) y plan de renovación con % del área renovada por año",ods:2,m:"2.3",t:"Productividad de pequeños productores",i:"Rendimiento promedio por ha y % del área renovada; variación interanual"},
+ {n:18,d:"eco",c:"Productividad y calidad",q:"¿Controla la calidad antes de la venta (humedad, defectos, almacenamiento) y conoce el precio diferenciado que obtiene?",v:"Facturas de venta con parámetros de calidad y observación del sitio de almacenamiento",ods:12,m:"12.6",t:"Calidad y sostenibilidad empresarial",i:"% del volumen vendido con control de calidad y diferencial de precio promedio"},
+ {n:19,d:"eco",c:"Comercialización",q:"¿Vende con información de precios actualizada, a compradores formales o por medio de su organización, y conserva soportes?",v:"Facturas o recibos con precio, cantidad y calidad, comparados con un precio de referencia",ods:9,m:"9.3",t:"Acceso a mercados y cadenas de valor",i:"% del volumen vendido formalmente o vía organizaciones; diferencia frente al precio de referencia"},
+ {n:20,d:"eco",c:"Resiliencia económica",q:"¿Diversifica los ingresos (otros cultivos, productos agroforestales, autoconsumo, actividades complementarias)?",v:"Registro de ingresos por fuente y % del ingreso que proviene del producto principal",ods:2,m:"2.4",t:"Resiliencia productiva",i:"% de fincas con dos o más fuentes de ingreso y peso medio del producto principal"}
+];
+const code=x=>`${DIMS[x.d].code}-${String(x.n).padStart(2,"0")}`;
+const ART=[
+ ["Suelo, restauración y biodiversidad (1, 2, 8)","Finca, microcuenca y parroquia","GAD provincial (gestión ambiental, obras en cuencas) y GAD municipal (uso y ocupación del suelo)","PDOT provincial y cantonal; PUGS"],
+ ["Agua (4, 5)","Finca, microcuenca y subcuenca","GAD provincial (riego, cuencas), autoridad del agua, juntas de agua y de riego","PDOT provincial; planes de riego y de cuenca"],
+ ["Producción sostenible, agroquímicos y residuos (3, 6, 7, 9, 10)","Finca, parroquia y cantón","GAD provincial (fomento agropecuario), GAD municipal (desechos sólidos), GAD parroquial","PDOT cantonal, componentes biofísico y económico-productivo"],
+ ["Trabajo decente y protección social (11 a 14)","Finca y cantón","Autoridades nacionales del trabajo y la seguridad social, con el GAD municipal","PDOT cantonal, componente sociocultural"],
+ ["Equidad y participación (15)","Finca, parroquia y cantón","GAD parroquial y municipal, organizaciones de productores","Mecanismos de participación ciudadana del PDOT"],
+ ["Economía de finca y cadenas (16 a 20)","Finca, cadena, cantón y provincia","GAD provincial (fomento productivo), GAD parroquial, organizaciones de productores","PDOT provincial y cantonal, componente económico-productivo"]
+];
+const EXAMPLE={name:"Finca de ejemplo · caficultura familiar en ladera",a:{1:"c",2:"p",3:"p",4:"c",5:"p",6:"p",7:"c",8:"c",9:"p",10:"n",11:"c",12:"p",13:"c",14:"p",15:"n",16:"p",17:"p",18:"c",19:"c",20:"p"}};
+const LABEL={c:"Cumple",p:"En progreso",n:"No cumple",na:"No aplica"};
+const KEY="finca-territorio-v1";
+let state={name:"",a:{},example:false};
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY)||"null");if(s&&s.a){state=s;return true}}catch(e){}return false}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}}
+if(!load()){state={name:EXAMPLE.name,a:Object.assign({},EXAMPLE.a),example:true}}
+
+const $=s=>document.querySelector(s);
+const esc=t=>String(t).replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+const VC={ok:["var(--ok)","var(--ok-bg)"],mid:["var(--mid)","var(--mid-bg)"],bad:["var(--bad)","var(--bad-bg)"],na:["var(--muted)","var(--sunk)"]};
+
+/* ---------- curvas de nivel del encabezado ---------- */
+function drawTopo(){
+  const cv=$("#topo"),hd=cv.parentElement,dpr=Math.min(2,window.devicePixelRatio||1);
+  const W=hd.clientWidth,H=hd.clientHeight; cv.width=W*dpr; cv.height=H*dpr;
+  const g=cv.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
+  const cs=getComputedStyle(document.documentElement);
+  const c1=cs.getPropertyValue("--contour").trim(), c2=cs.getPropertyValue("--contour-strong").trim(), cw=cs.getPropertyValue("--water").trim();
+  // relieve: suma de colinas gaussianas, se trazan isolíneas con marching squares
+  const hills=[[.78,.35,.22,1],[.93,.85,.18,.8],[.6,.95,.2,.55],[.45,.15,.16,.45],[.25,.75,.24,.35]];
+  const step=8,cols=Math.ceil(W/step)+1,rows=Math.ceil(H/step)+1,f=new Float32Array(cols*rows);
+  for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){
+    const x=i*step/W,y=j*step/H*(H/W)*2.2;let z=0;
+    for(const[hx,hy,s,a]of hills){const dx=x-hx,dy=y-hy*(H/W)*2.2;z+=a*Math.exp(-(dx*dx+dy*dy)/(2*s*s))}
+    z+=.03*Math.sin(x*22)+.025*Math.cos(y*18+x*6);
+    f[j*cols+i]=z;
+  }
+  const levels=[];for(let L=.12;L<1.3;L+=.07)levels.push(L);
+  levels.forEach((L,k)=>{
+    g.beginPath();g.strokeStyle=(k%5===4)?c2:c1;g.lineWidth=(k%5===4)?1.3:.8;
+    for(let j=0;j<rows-1;j++)for(let i=0;i<cols-1;i++){
+      const a=f[j*cols+i],b=f[j*cols+i+1],c=f[(j+1)*cols+i+1],d=f[(j+1)*cols+i];
+      const idx=(a>L)|((b>L)<<1)|((c>L)<<2)|((d>L)<<3); if(idx===0||idx===15)continue;
+      const x0=i*step,y0=j*step,lerp=(p,q)=>(L-p)/(q-p);
+      const T=[x0+step*lerp(a,b),y0],R=[x0+step,y0+step*lerp(b,c)],B=[x0+step*lerp(d,c),y0+step],Lf=[x0,y0+step*lerp(a,d)];
+      const segs={1:[Lf,T],2:[T,R],3:[Lf,R],4:[R,B],5:[Lf,T,R,B],6:[T,B],7:[Lf,B],8:[B,Lf],9:[B,T],10:[T,R,B,Lf],11:[B,R],12:[R,Lf],13:[R,T],14:[T,Lf]}[idx];
+      for(let s=0;s<segs.length;s+=2){g.moveTo(segs[s][0],segs[s][1]);g.lineTo(segs[s+1][0],segs[s+1][1])}
+    }
+    g.stroke();
+  });
+  // un cauce
+  g.beginPath();g.strokeStyle=cw;g.lineWidth=2;g.globalAlpha=.55;
+  for(let x=W*.38;x<=W;x+=6){const y=H*(.98-.55*((x-W*.38)/(W*.62)))+10*Math.sin(x/45);x===W*.38?g.moveTo(x,y):g.lineTo(x,y)}
+  g.stroke();g.globalAlpha=1;
+}
+let rz;window.addEventListener("resize",()=>{clearTimeout(rz);rz=setTimeout(drawTopo,150)});
+try{matchMedia("(prefers-color-scheme: dark)").addEventListener("change",drawTopo)}catch(e){}
+new MutationObserver(drawTopo).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+
+/* ---------- Evaluar ---------- */
+function buildList(){
+  let h="";
+  for(const d of ["amb","soc","eco"]){
+    const items=C.filter(x=>x.d===d);
+    h+=`<div class="dimhead" style="--dc:${DIMS[d].color}"><h2>${DIMS[d].name}</h2><span class="note">${items.length} prácticas</span><span class="pill count" id="cnt-${d}"></span></div>`;
+    for(const x of items){
+      h+=`<div class="crit" id="crit-${x.n}" style="--dc:${DIMS[d].color}">
+        <div class="num">${code(x)}</div>
+        <div class="tag">${esc(x.c)}${x.crit?'<span class="crit-flag">MÍNIMO</span>':""}</div>
+        <p class="q">${esc(x.q)}</p>
+        <p class="ver"><b>Verificador ·</b> ${esc(x.v)}</p>
+        <div class="choices" role="radiogroup" aria-label="Respuesta ${code(x)}">
+          ${["c","p","n","na"].map(v=>`<label><input type="radio" name="r${x.n}" id="r${x.n}-${v}" value="${v}"><span class="box"></span><span class="lbl">${LABEL[v]}</span></label>`).join("")}
+        </div></div>`;
+    }
+  }
+  $("#critList").innerHTML=h;
+  $("#critList").addEventListener("change",e=>{
+    const m=e.target.name&&e.target.name.match(/^r(\d+)$/); if(!m) return;
+    state.a[m[1]]=e.target.value; state.example=false; save(); syncEval();
+  });
+}
+function scoreOf(ans,d){
+  let s=0,max=0,answered=0,total=0;
+  for(const x of C.filter(x=>x.d===d)){
+    total++; const v=ans[x.n]; if(!v) continue; answered++;
+    if(v==="na") continue; max+=2; s+= v==="c"?2: v==="p"?1:0;
+  }
+  return {pct:max?Math.round(100*s/max):null,answered,total};
+}
+function band(p){return p===null?"na":p>=75?"ok":p>=50?"mid":"bad"}
+function verdictOf(ans){
+  const sc={amb:scoreOf(ans,"amb"),soc:scoreOf(ans,"soc"),eco:scoreOf(ans,"eco")};
+  const critFail=C.filter(x=>x.crit&&ans[x.n]==="n");
+  const answered=Object.keys(ans).length;
+  let k,t,p;
+  if(answered<20){k="na";t="Ficha incompleta";p=`Faltan ${20-answered} criterios por responder.`}
+  else if(critFail.length){k="bad";t="Requiere atención";p="Incumple al menos un mínimo exigible, sin importar los porcentajes."}
+  else if(Object.values(sc).every(s=>s.pct===null||s.pct>=75)){k="ok";t="Finca sostenible";p="Las tres dimensiones están en verde y se cumplen los mínimos exigibles."}
+  else if(Object.values(sc).every(s=>s.pct===null||s.pct>=50)){k="mid";t="En transición";p="Cumple los mínimos, pero al menos una dimensión está por debajo de 75 %."}
+  else {k="bad";t="Requiere atención";p="Al menos una dimensión está por debajo de 50 %."}
+  return {k,t,p,sc,critFail};
+}
+function syncEval(){
+  $("#farmName").value=state.name||"";
+  $("#exampleNote").hidden=!state.example;
+  for(const x of C){
+    const v=state.a[x.n];
+    document.querySelectorAll(`input[name="r${x.n}"]`).forEach(i=>i.checked=(i.value===v));
+    $("#crit-"+x.n).classList.toggle("unanswered",!v);
+  }
+  const V=verdictOf(state.a);
+  $("#verdict").innerHTML=`<div class="stamp" style="--vc:${VC[V.k][0]}">${V.t}</div><p class="stamp-note">${V.p}</p>`;
+  let h="";
+  for(const d of ["amb","soc","eco"]){
+    const s=V.sc[d]; const b=band(s.pct);
+    $("#cnt-"+d).textContent=s.pct===null?"–":s.pct+" %";
+    h+=`<div class="dimbar"><div class="row"><span style="color:${DIMS[d].color}">${DIMS[d].name}</span><span class="mono" style="color:${VC[b][0]}">${s.pct===null?"–":s.pct+" %"}</span></div>
+      <div class="track" role="img" aria-label="${DIMS[d].name} ${s.pct??0} por ciento"><i style="width:${s.pct||0}%;background:${VC[b][0]}"></i><span class="t50"></span><span class="t75"></span></div>
+      <div class="sub">${s.answered} de ${s.total} criterios respondidos</div></div>`;
+  }
+  $("#dimbars").innerHTML=h;
+  const n=Object.keys(state.a).length;
+  $("#progress").textContent=`${n}/20 criterios respondidos`;
+  const pend=C.filter(x=>state.a[x.n]==="n");
+  $("#flags").innerHTML= pend.length? `<li style="list-style:none;margin-left:-18px" class="label">Prácticas por implementar</li>`+pend.map(x=>`<li${x.crit?' style="color:var(--bad);font-weight:600"':""}>${code(x)} ${esc(x.c)}${x.crit?" (mínimo)":""}</li>`).join("") : "";
+  if(!$("#v-territorio").hidden) renderTerr();
+}
+function summaryText(){
+  const V=verdictOf(state.a);
+  const L=[`Evaluación de sostenibilidad · ${state.name||"Finca sin nombre"}`,`Resultado: ${V.t}`];
+  for(const d of ["amb","soc","eco"]) L.push(`${DIMS[d].name}: ${V.sc[d].pct===null?"–":V.sc[d].pct+" %"}`);
+  L.push("");
+  for(const x of C) L.push(`${code(x)} ${x.c}: ${LABEL[state.a[x.n]]||"Sin responder"}`);
+  return L.join("\n");
+}
+$("#farmName").addEventListener("input",e=>{state.name=e.target.value;state.example=false;save();$("#exampleNote").hidden=true});
+$("#loadExample").addEventListener("click",()=>{state={name:EXAMPLE.name,a:Object.assign({},EXAMPLE.a),example:true};save();syncEval()});
+$("#clearAll").addEventListener("click",()=>{state={name:"",a:{},example:false};save();syncEval();$("#farmName").focus()});
+$("#copySummary").addEventListener("click",()=>{
+  const t=summaryText(), out=$("#copied");
+  const done=msg=>{out.hidden=false;out.textContent=msg;setTimeout(()=>out.hidden=true,2500)};
+  try{navigator.clipboard.writeText(t).then(()=>done("Resumen copiado"),()=>fallback())}catch(e){fallback()}
+  function fallback(){const ta=document.createElement("textarea");ta.value=t;ta.style.width="100%";ta.rows=8;out.hidden=false;out.textContent="Seleccione y copie el texto:";out.after(ta);ta.select()}
+});
+
+/* ---------- Territorio (fincas ilustrativas) ---------- */
+function rng(seed){return()=>{seed=(seed*1664525+1013904223)%4294967296;return seed/4294967296}}
+const PARR=["Flavio Alfaro","Zapallo","San Francisco de Novillo"];
+const PC={1:.55,2:.35,3:.25,4:.4,5:.15,6:.3,7:.5,8:.35,9:.3,10:.45,11:.6,12:.3,13:.8,14:.3,15:.2,16:.25,17:.3,18:.45,19:.35,20:.5};
+const SAMPLE=(()=>{const r=rng(20261101),out=[];
+  for(let k=0;k<24;k++){const p=PARR[k%3],a={},adj=p==="Flavio Alfaro"?.08:p==="Zapallo"?-.05:-.03;
+    for(const x of C){const u=r(),pc=Math.min(.95,Math.max(.05,PC[x.n]+adj));a[x.n]=u<pc?"c":u<pc+(1-pc)*.55?"p":"n"}
+    out.push({p,a})}
+  return out})();
+function renderTerr(){
+  const fp=$("#fParroquia").value, fd=$("#fDim").value, mine=$("#includeMine").checked;
+  let set=SAMPLE.filter(f=>fp==="all"||f.p===fp);
+  if(mine&&Object.keys(state.a).length) set=set.concat([{p:"(mi finca)",a:state.a}]);
+  $("#nFincas").textContent=`n = ${set.length} fincas`;
+  let th="";
+  for(const d of ["amb","soc","eco"]){
+    let g=0,cnt=0;
+    for(const f of set){const s=scoreOf(f.a,d);if(s.pct===null)continue;cnt++;if(s.pct>=75)g++}
+    const avg=Math.round(set.reduce((acc,f)=>acc+(scoreOf(f.a,d).pct||0),0)/Math.max(1,set.length));
+    th+=`<div class="dtile" style="--dc:${DIMS[d].color}"><div class="lab">${DIMS[d].name}</div><div class="big">${cnt?Math.round(100*g/cnt):0} %</div><div class="sub">de las fincas en verde (≥ 75 %) · promedio ${avg} %</div></div>`;
+  }
+  $("#dimtiles").innerHTML=th;
+  let h="";
+  for(const x of C.filter(x=>fd==="all"||x.d===fd)){
+    let c=0,p=0,n=0,t=0;
+    for(const f of set){const v=f.a[x.n];if(!v||v==="na")continue;t++;if(v==="c")c++;else if(v==="p")p++;else n++}
+    const pc=t?Math.round(100*c/t):0,pp=t?Math.round(100*p/t):0,pn=t?100-pc-pp:0;
+    h+=`<tr style="--dc:${DIMS[x.d].color}"><td class="n">${code(x)}</td><td><b>${esc(x.c)}</b>${x.crit?' <span class="crit-flag" style="margin-left:4px">MÍNIMO</span>':""}<div class="note">${DIMS[x.d].name}</div></td>
+      <td><span class="ods" style="background:${ODSCOL[x.ods]}">ODS ${x.ods}</span> <span class="mono">${x.m}</span></td>
+      <td><b>${esc(x.t)}</b><div class="note">${esc(x.i)}</div></td>
+      <td><div class="stack" role="img" aria-label="${pc}% cumple, ${pp}% en progreso, ${pn}% no cumple"><i style="width:${pc}%;background:var(--ok)"></i><i style="width:${pp}%;background:var(--mid)"></i><i style="width:${pn}%;background:var(--bad)"></i></div><div class="pct"><span style="color:var(--ok)">${pc}</span> · <span style="color:var(--mid)">${pp}</span> · <span style="color:var(--bad)">${pn}</span> %</div></td></tr>`;
+  }
+  $("#terrBody").innerHTML=h;
+}
+$("#artBody").innerHTML=ART.map(r=>`<tr>${r.map((c,i)=>`<td>${i===0?"<b>"+esc(c)+"</b>":esc(c)}</td>`).join("")}</tr>`).join("");
+["fParroquia","fDim","includeMine"].forEach(id=>$("#"+id).addEventListener("change",renderTerr));
+
+/* ---------- Calificar (rueda) ---------- */
+const ACT={1:"establecer coberturas vegetales o mulch en las áreas descubiertas",2:"implementar barreras vivas o siembra en contorno en las laderas",3:"hacer un análisis de suelo y ajustar la fertilización con abonos orgánicos",4:"aislar y revegetalizar las franjas de nacimientos y quebradas",5:"medir el consumo de agua y reducirlo en riego y beneficio",6:"iniciar el monitoreo de plagas y aplicar solo según umbral",7:"adecuar la bodega de agroquímicos y eliminar los productos prohibidos",8:"aumentar los árboles de sombra o silvopastoriles y conservar la vegetación natural",9:"separar los residuos y compostar la materia orgánica",10:"eliminar las quemas y registrar el consumo de energía",11:"ajustar los pagos al salario mínimo legal, incluidos los pagos por kilo",12:"documentar los acuerdos laborales y llevar registro de jornada",13:"verificar que no haya menores en labores peligrosas ni retención de documentos",14:"afiliar a los trabajadores y dotar de EPP, botiquín y agua potable",15:"crear un mecanismo de quejas y abrir espacios a mujeres y jóvenes",16:"llevar el registro de costos e ingresos y calcular el costo por kilogramo",17:"registrar la cosecha por lote y definir un plan de renovación",18:"controlar la humedad y los defectos antes de vender",19:"vender con soportes y comparar con un precio de referencia",20:"diversificar los ingresos con cultivos asociados u otros productos de la finca"};
+const RKEY="finca-territorio-calif-v1";
+const mk=(id,name,arr)=>{const s={};arr.forEach((v,i)=>s[i+1]=v);return{id,name,s}};
+const RDEF={cur:"ej-a",fincas:[
+  mk("ej-a","Ejemplo A · café en ladera",[8,6,5,8,4,5,9,8,6,3,9,6,10,5,3,5,6,8,7,6]),
+  mk("ej-b","Ejemplo B · ganadería doble propósito",[4,2,3,3,2,4,6,3,4,5,7,4,9,4,3,3,4,5,4,3])]};
+let R=JSON.parse(JSON.stringify(RDEF));
+try{const s=JSON.parse(localStorage.getItem(RKEY)||"null");if(s&&Array.isArray(s.fincas)&&s.fincas.length)R=s}catch(e){}
+const rsave=()=>{try{localStorage.setItem(RKEY,JSON.stringify(R))}catch(e){}};
+const cur=()=>R.fincas.find(f=>f.id===R.cur)||R.fincas[0];
+const fmt=v=>v.toFixed(1).replace(".",",");
+const rb=v=>v>=7.5?"ok":v>=5?"mid":"bad";
+function buildSliders(){
+  let h="";
+  for(const d of ["amb","soc","eco"]){
+    h+=`<div class="rhead" style="--dc:${DIMS[d].color}"><h2>${DIMS[d].name}</h2><span class="avg" id="ravg-${d}"></span></div>`;
+    for(const x of C.filter(x=>x.d===d)){
+      h+=`<div class="srow" style="--dc:${DIMS[d].color}"><span class="sn">${code(x)}</span>
+        <label class="sl" for="s${x.n}">${esc(x.c)}${x.crit?'<span class="crit-flag">MÍNIMO</span>':""}<small>${esc(x.t)}</small></label>
+        <span class="sv" id="sv${x.n}"></span>
+        <input type="range" id="s${x.n}" min="0" max="10" step="1" data-n="${x.n}" aria-describedby="sv${x.n}"></div>`;
+    }
+  }
+  $("#rSliders").innerHTML=h;
+  $("#rSliders").addEventListener("input",e=>{const n=e.target.dataset.n;if(!n)return;cur().s[n]=+e.target.value;rsave();renderRate(false)});
+}
+function polar(r,a){const t=(a-90)*Math.PI/180;return[220+r*Math.cos(t),220+r*Math.sin(t)]}
+function wedge(r0,r1,a0,a1){
+  const [x0,y0]=polar(r1,a0),[x1,y1]=polar(r1,a1),[x2,y2]=polar(r0,a1),[x3,y3]=polar(r0,a0);
+  if(r0<=0) return `M220 220 L${x0.toFixed(2)} ${y0.toFixed(2)} A${r1} ${r1} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z`;
+  return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${r1} ${r1} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)} L${x2.toFixed(2)} ${y2.toFixed(2)} A${r0} ${r0} 0 0 0 ${x3.toFixed(2)} ${y3.toFixed(2)} Z`;
+}
+function drawWheel(s){
+  const R0=150,step=18;let g="";
+  C.forEach((x,i)=>{const a0=i*step,a1=a0+step;g+=`<path d="${wedge(0,R0,a0,a1)}" style="fill:var(--sunk);stroke:var(--rule)" stroke-width="1"/>`});
+  for(let k=2;k<=10;k+=2) g+=`<circle cx="220" cy="220" r="${R0*k/10}" style="fill:none;stroke:${k===5?"var(--ink)":"var(--rule-strong)"}" stroke-width="${k===10?1.5:.8}" ${k<10?'stroke-dasharray="2 3"':''}/>`;
+  g+=`<circle cx="220" cy="220" r="${R0*.5}" style="fill:none;stroke:var(--ink)" stroke-width=".8" stroke-dasharray="1 2"/>`;
+  C.forEach((x,i)=>{
+    const a0=i*step,a1=a0+step,col=DIMS[x.d].color,v=s[x.n]??0;
+    if(v>0) g+=`<path d="${wedge(0,R0*v/10,a0+.7,a1-.7)}" style="fill:${col};fill-opacity:${x.crit&&v<5?.45:.88}"/>`;
+    g+=`<path d="${wedge(R0+6,R0+18,a0+.5,a1-.5)}" style="fill:${col}"/>`;
+    const [lx,ly]=polar(R0+33,a0+step/2);
+    g+=`<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="central" style="fill:var(--ink);font:600 12px var(--f-mono)">${x.n}</text>`;
+    if(x.crit){const [cx,cy]=polar(R0+47,a0+step/2);g+=`<rect x="${(cx-3).toFixed(1)}" y="${(cy-3).toFixed(1)}" width="6" height="6" style="fill:var(--bad)"><title>Mínimo exigible</title></rect>`}
+  });
+  for(let k=2;k<=10;k+=2){const [tx,ty]=polar(R0*k/10,0);g+=`<text x="${tx+4}" y="${ty+10}" style="fill:var(--muted);font:10px var(--f-mono)">${k}</text>`}
+  g+=`<circle cx="220" cy="220" r="3" style="fill:var(--ink)"/>`;
+  $("#wheel").innerHTML=g;
+}
+function rAnalysis(f){
+  const s=f.s, dav={};
+  for(const d of ["amb","soc","eco"]){const it=C.filter(x=>x.d===d);dav[d]=it.reduce((a,x)=>a+(s[x.n]??0),0)/it.length}
+  const sorted=[...C].sort((a,b)=>(s[b.n]??0)-(s[a.n]??0));
+  const strong=sorted.filter(x=>(s[x.n]??0)>=7.5).slice(0,3);
+  const weak=[...C].sort((a,b)=>(s[a.n]??0)-(s[b.n]??0)).filter(x=>(s[x.n]??0)<5).slice(0,3);
+  const critF=C.filter(x=>x.crit&&(s[x.n]??0)<5);
+  const dims=["amb","soc","eco"], hi=dims.reduce((a,b)=>dav[a]>=dav[b]?a:b), lo=dims.reduce((a,b)=>dav[a]<=dav[b]?a:b);
+  const gap=dav[hi]-dav[lo];
+  let k,state;
+  if(critF.length){k="bad";state="Atención prioritaria"}
+  else if(dims.every(d=>dav[d]>=7.5)){k="ok";state="Finca sostenible"}
+  else if(dims.every(d=>dav[d]>=5)){k="mid";state="En transición"}
+  else {k="bad";state="Requiere atención"}
+  const L=x=>`${x.c.toLowerCase()} (${code(x)}, ${fmt(s[x.n]??0)})`;
+  const list=a=>a.length===1?a[0]:a.slice(0,-1).join(", ")+" y "+a[a.length-1];
+  const adj={amb:"ambiental",soc:"social",eco:"económico"};
+  const P=[];
+  P.push(`La finca obtiene ${fmt(dav.amb)} en la dimensión ambiental, ${fmt(dav.soc)} en la social y ${fmt(dav.eco)} en la económica, sobre 10.`);
+  P.push(strong.length?`Sus principales fortalezas se encuentran en ${list(strong.map(L))}.`:`Ningún criterio alcanza 7,5, por lo cual la finca no tiene aún prácticas consolidadas y verificadas.`);
+  P.push(weak.length?`Las brechas más importantes están en ${list(weak.map(L))}.`:`No hay criterios por debajo de 5, lo cual indica una implementación al menos parcial en todas las prácticas.`);
+  if(gap>=2.5) P.push(`Se evidencia un desequilibrio entre dimensiones: el desempeño ${adj[hi]} (${fmt(dav[hi])}) no compensa el rezago ${adj[lo]} (${fmt(dav[lo])}).`);
+  if(critF.length) P.push(`Se incumple el mínimo exigible en ${list(critF.map(L))}, por lo cual la finca requiere atención prioritaria, independientemente de su puntaje general.`);
+  const pri=[...critF,...[...C].sort((a,b)=>(s[a.n]??0)-(s[b.n]??0)).filter(x=>!critF.includes(x))].slice(0,3);
+  const acts=pri.map((x,i)=>`${"abc"[i]}) ${ACT[x.n]}`).join("; ");
+  const lowName={amb:"ambiental",soc:"social",eco:"económica"}[lo];
+  let concl;
+  if(k==="ok") concl=`La finca mantiene un equilibrio entre ambiente, personas y rentabilidad, y cumple los mínimos exigibles. Se recomienda sostener los registros, avanzar hacia verificadores externos (nivel 3) y reportar sus resultados al indicador territorial de su microcuenca.`;
+  else if(k==="mid") concl=`La finca cumple los mínimos exigibles, pero no alcanza aún un nivel sostenible, en particular en la dimensión ${lowName}. Las acciones prioritarias son: ${acts}.`;
+  else if(critF.length) concl=`Antes de mejorar el puntaje general, la finca debe resolver los incumplimientos de los mínimos exigibles. Las acciones prioritarias son: ${acts}.`;
+  else concl=`La finca presenta un rezago importante, especialmente en la dimensión ${lowName}, que compromete su permanencia en el tiempo. Las acciones prioritarias son: ${acts}.`;
+  return {k,state,dav,P,concl};
+}
+function renderRate(full=true){
+  const f=cur();
+  if(full){
+    $("#rSel").innerHTML=R.fincas.map(x=>`<option value="${esc(x.id)}"${x.id===f.id?" selected":""}>${esc(x.name||"Finca sin nombre")}</option>`).join("");
+    $("#rName").value=f.name;
+  }
+  for(const x of C){const v=f.s[x.n]??0;const el=$("#s"+x.n);if(full||+el.value!==v)el.value=v;const sv=$("#sv"+x.n);sv.textContent=v;sv.style.color=VC[rb(v)][0]}
+  const A=rAnalysis(f);
+  for(const d of ["amb","soc","eco"]){const e=$("#ravg-"+d);e.textContent=fmt(A.dav[d])+" / 10";e.style.color=VC[rb(A.dav[d])][0]}
+  drawWheel(f.s);
+  const box=$("#analysis");box.style.setProperty("--vc",VC[A.k][0]);box.style.setProperty("--vbg",VC[A.k][1]);
+  box.innerHTML=`<div class="stamp" style="--vc:${VC[A.k][0]}">${A.state}</div>
+    <div class="scores">${["amb","soc","eco"].map(d=>`<span style="color:${VC[rb(A.dav[d])][0]}">${DIMS[d].code} ${fmt(A.dav[d])}</span>`).join("")}</div>
+    <h4>Análisis</h4>${A.P.map(p=>`<p>${esc(p)}</p>`).join("")}
+    <h4>Conclusión</h4><p class="concl">${esc(A.concl)}</p>`;
+}
+$("#rSel").addEventListener("change",e=>{R.cur=e.target.value;rsave();renderRate()});
+$("#rName").addEventListener("input",e=>{cur().name=e.target.value;rsave();const o=$("#rSel").selectedOptions[0];if(o)o.textContent=e.target.value||"Finca sin nombre"});
+$("#rNew").addEventListener("click",()=>{const id="f"+Date.now();const s={};C.forEach(x=>s[x.n]=5);R.fincas.push({id,name:"Nueva finca "+(R.fincas.length+1),s});R.cur=id;rsave();renderRate();$("#rName").select()});
+$("#rImport").addEventListener("click",()=>{const f=cur(),map={c:10,p:5,n:0};let k=0;for(const x of C){const v=state.a[x.n];if(v in map){f.s[x.n]=map[v];k++}}if(state.name&&k)f.name=state.name;rsave();renderRate();const o=$("#rCopied");o.hidden=false;o.textContent=k?`Se trajeron ${k} respuestas (cumple = 10, en progreso = 5, no cumple = 0)`:"La ficha 01 no tiene respuestas";setTimeout(()=>o.hidden=true,3500)});
+let delArmed=false;
+$("#rDel").addEventListener("click",e=>{
+  if(!delArmed){delArmed=true;e.target.textContent="Confirmar eliminación";setTimeout(()=>{delArmed=false;e.target.textContent="Eliminar finca"},4000);return}
+  delArmed=false;e.target.textContent="Eliminar finca";
+  R.fincas=R.fincas.filter(x=>x.id!==R.cur);
+  if(!R.fincas.length) R=JSON.parse(JSON.stringify(RDEF));
+  R.cur=R.fincas[0].id;rsave();renderRate();
+});
+$("#rCopy").addEventListener("click",()=>{
+  const f=cur(),A=rAnalysis(f),t=[`${f.name} · ${A.state}`,`Ambiental ${fmt(A.dav.amb)} · Social ${fmt(A.dav.soc)} · Económica ${fmt(A.dav.eco)}`,"",...A.P,"","Conclusión: "+A.concl,"",...C.map(x=>`${code(x)} ${x.c}: ${f.s[x.n]??0}/10`)].join("\n");
+  const o=$("#rCopied"),done=m=>{o.hidden=false;o.textContent=m;setTimeout(()=>o.hidden=true,2500)};
+  try{navigator.clipboard.writeText(t).then(()=>done("Análisis copiado"),()=>done("No se pudo copiar; seleccione el texto del recuadro"))}catch(err){done("No se pudo copiar; seleccione el texto del recuadro")}
+});
+
+/* ---------- Rutas ---------- */
+const VIEWS=["evaluar","calificar","territorio","acerca"];
+function route(){
+  const v=VIEWS.includes(location.hash.slice(1))?location.hash.slice(1):"evaluar";
+  for(const k of VIEWS) $("#v-"+k).hidden=(k!==v);
+  document.querySelectorAll("nav.tabs a").forEach(a=>a.setAttribute("aria-current",a.dataset.view===v?"page":"false"));
+  if(v==="territorio") renderTerr();
+  if(v==="calificar") renderRate();
+}
+buildSliders();
+window.addEventListener("hashchange",()=>{route();window.scrollTo(0,0)});
+buildList(); syncEval(); route(); drawTopo();
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(drawTopo);
+})();
+</script>
+
+</body>
+</html>
